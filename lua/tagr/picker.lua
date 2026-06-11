@@ -170,9 +170,28 @@ function snacks_picker.filtered_files_picker(filter_name)
 
     local items = {}
     for _, f in ipairs(files) do
+      local abs_path = vim.fn.fnamemodify(f.file, ":p")
+      -- Detect and flag binary/unviewable files so we can disable previews for them dynamically.
+      -- This avoids the "warn: binary file" message and raw Lua object dumps from Snacks' text-buffer previewer.
+      local is_binary = false
+      local ext = abs_path:match("^.+(%.[^.]+)$")
+      if ext then
+        ext = ext:lower()
+        local binary_exts = {
+          [".zip"] = true, [".tar"] = true, [".gz"] = true, [".tgz"] = true,
+          [".pdf"] = true, [".png"] = true, [".jpg"] = true, [".jpeg"] = true,
+          [".gif"] = true, [".mp4"] = true, [".mov"] = true, [".exe"] = true,
+          [".bin"] = true, [".o"] = true, [".db"] = true, [".sqlite"] = true,
+        }
+        if binary_exts[ext] then
+          is_binary = true
+        end
+      end
+
       table.insert(items, {
         text = string.format("%s [%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
-        file = f.file,
+        file = abs_path,
+        preview = is_binary and "none" or nil, -- Disable preview specifically for known binary item targets
       })
     end
 
@@ -243,9 +262,29 @@ function snacks_picker.files_by_tag_picker(tag_name)
 
     local items = {}
     for _, f in ipairs(files) do
+      -- Ensure we resolve the path to its absolute coordinates so Snacks can read the file preview perfectly
+      local abs_path = vim.fn.fnamemodify(f.file, ":p")
+      -- Detect and flag binary/unviewable files so we can disable previews for them dynamically.
+      -- This avoids the "warn: binary file" message and raw Lua object dumps from Snacks' text-buffer previewer.
+      local is_binary = false
+      local ext = abs_path:match("^.+(%.[^.]+)$")
+      if ext then
+        ext = ext:lower()
+        local binary_exts = {
+          [".zip"] = true, [".tar"] = true, [".gz"] = true, [".tgz"] = true,
+          [".pdf"] = true, [".png"] = true, [".jpg"] = true, [".jpeg"] = true,
+          [".gif"] = true, [".mp4"] = true, [".mov"] = true, [".exe"] = true,
+          [".bin"] = true, [".o"] = true, [".db"] = true, [".sqlite"] = true,
+        }
+        if binary_exts[ext] then
+          is_binary = true
+        end
+      end
+
       table.insert(items, {
         text = string.format("%s \t[%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
-        file = f.file,
+        file = abs_path,
+        preview = is_binary and "none" or nil, -- Disable preview specifically for known binary item targets
       })
     end
 
