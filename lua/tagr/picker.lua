@@ -1,0 +1,349 @@
+local api = require("tagr.api")
+local M = {}
+
+-- Determine which picker should be used based on configuration and availability
+local function get_picker_type()
+  local tagr_main = package.loaded["tagr"]
+  local config_picker = "auto"
+  if tagr_main and tagr_main.config and tagr_main.config.picker then
+    config_picker = tagr_main.config.picker
+  end
+
+  if config_picker == "snacks" then
+    return "snacks"
+  elseif config_picker == "telescope" then
+    return "telescope"
+  elseif config_picker == "ui" then
+    return "ui"
+  end
+
+  -- Auto-detection sequence
+  if pcall(require, "snacks") and Snacks and Snacks.picker then
+    return "snacks"
+  elseif pcall(require, "telescope") then
+    return "telescope"
+  else
+    return "ui"
+  end
+end
+
+-- Fallback UI implementation using native vim.ui.select
+local ui_picker = {}
+
+function ui_picker.saved_filters_picker()
+  vim.system({ "tagr", "filter", "list", "--json" }, { text = true }, function(obj)
+    local filters = {}
+    if obj.code == 0 then
+      filters = vim.json.decode(obj.stdout or "[]")
+    end
+
+    vim.schedule(function()
+      if #filters == 0 then
+        vim.notify("tagr: No saved filters found", vim.log.levels.INFO)
+        return
+      end
+
+      vim.ui.select(filters, {
+        prompt = "Select Saved Filter:",
+        format_item = function(item)
+          return string.format("%s — %s", item.name, item.description or "No description")
+        end
+      }, function(choice)
+        if choice then
+          M.filtered_files_picker(choice.name)
+        end
+      end)
+    end)
+  end)
+end
+
+function ui_picker.filtered_files_picker(filter_name)
+  vim.system({ "tagr", "search", "-F", filter_name, "--json" }, { text = true }, function(obj)
+    local files = {}
+    if obj.code == 0 then
+      files = vim.json.decode(obj.stdout or "[]")
+    end
+
+    vim.schedule(function()
+      if #files == 0 then
+        vim.notify("tagr: No files matched filter '" .. filter_name .. "'", vim.log.levels.INFO)
+        return
+      end
+
+      vim.ui.select(files, {
+        prompt = "Files matching: " .. filter_name,
+        format_item = function(item)
+          return string.format("%s [%s]", vim.fs.basename(item.file), table.concat(item.tags, ", "))
+        end
+      }, function(choice)
+        if choice then
+          vim.cmd("edit " .. vim.fn.fnameescape(choice.file))
+        end
+      end)
+    end)
+  end)
+end
+
+function ui_picker.tag_search_picker()
+  vim.system({ "tagr", "list", "tags", "--json" }, { text = true }, function(obj)
+    local tags_list = {}
+    if obj.code == 0 then
+      tags_list = vim.json.decode(obj.stdout or "[]")
+    end
+
+    vim.schedule(function()
+      if #tags_list == 0 then
+        vim.notify("tagr: No tags found in database", vim.log.levels.INFO)
+        return
+      end
+
+      vim.ui.select(tags_list, {
+        prompt = "Select Tag:",
+        format_item = function(item)
+          return string.format("%s (%d files)", item.name, item.file_count)
+        end
+      }, function(choice)
+        if choice then
+          M.files_by_tag_picker(choice.name)
+        end
+      end)
+    end)
+  end)
+end
+
+function ui_picker.files_by_tag_picker(tag_name)
+  vim.system({ "tagr", "search", "-t", tag_name, "--json" }, { text = true }, function(obj)
+    local files = {}
+    if obj.code == 0 then
+      files = vim.json.decode(obj.stdout or "[]")
+    end
+
+    vim.schedule(function()
+      if #files == 0 then
+        vim.notify("tagr: No files with tag '" .. tag_name .. "'", vim.log.levels.INFO)
+        return
+      end
+
+      vim.ui.select(files, {
+        prompt = "Files with tag: " .. tag_name,
+        format_item = function(item)
+          return string.format("%s [%s]", vim.fs.basename(item.file), table.concat(item.tags, ", "))
+        end
+      }, function(choice)
+        if choice then
+          vim.cmd("edit " .. vim.fn.fnameescape(choice.file))
+        end
+      end)
+    end)
+  end)
+end
+
+-- Snacks.picker implementation
+local snacks_picker = {}
+
+function snacks_picker.saved_filters_picker()
+  vim.system({ "tagr", "filter", "list", "--json" }, { text = true }, function(obj)
+    local filters = {}
+    if obj.code == 0 then
+      filters = vim.json.decode(obj.stdout or "[]")
+    end
+
+    vim.schedule(function()
+      if #filters == 0 then
+        vim.notify("tagr: No saved filters found", vim.log.levels.INFO)
+        return
+      end
+
+      local items = {}
+      for _, f in ipairs(filters) do
+        table.insert(items, {
+          text = string.format("%-20s │ %s", f.name, f.description or "No description"),
+          value = f.name,
+          name = f.name,
+        })
+      end
+
+      Snacks.picker({
+        title = "Tagr Saved Filters",
+        items = items,
+        confirm = function(picker, item)
+          picker:close()
+          if item then
+            M.filtered_files_picker(item.value)
+          end
+        end,
+      })
+    end)
+  end)
+end
+
+function snacks_picker.filtered_files_picker(filter_name)
+  vim.system({ "tagr", "search", "-F", filter_name, "--json" }, { text = true }, function(obj)
+    local files = {}
+    if obj.code == 0 then
+      files = vim.json.decode(obj.stdout or "[]")
+    end
+
+    vim.schedule(function()
+      if #files == 0 then
+        vim.notify("tagr: No files matched filter '" .. filter_name .. "'", vim.log.levels.INFO)
+        return
+      end
+
+      local items = {}
+      for _, f in ipairs(files) do
+        table.insert(items, {
+          text = string.format("%s [%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
+          file = f.file,
+        })
+      end
+
+      Snacks.picker({
+        title = "Files matching: " .. filter_name,
+        items = items,
+        confirm = function(picker, item)
+          picker:close()
+          if item then
+            vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+          end
+        end,
+      })
+    end)
+  end)
+end
+
+function snacks_picker.tag_search_picker()
+  vim.system({ "tagr", "list", "tags", "--json" }, { text = true }, function(obj)
+    local tags_list = {}
+    if obj.code == 0 then
+      tags_list = vim.json.decode(obj.stdout or "[]")
+    end
+
+    vim.schedule(function()
+      if #tags_list == 0 then
+        vim.notify("tagr: No tags found in database", vim.log.levels.INFO)
+        return
+      end
+
+      local items = {}
+      for _, t in ipairs(tags_list) do
+        table.insert(items, {
+          text = string.format("%-25s (%d files)", t.name, t.file_count),
+          value = t.name,
+        })
+      end
+
+      Snacks.picker({
+        title = "Select Tag",
+        items = items,
+        confirm = function(picker, item)
+          picker:close()
+          if item then
+            M.files_by_tag_picker(item.value)
+          end
+        end,
+      })
+    end)
+  end)
+end
+
+function snacks_picker.files_by_tag_picker(tag_name)
+  vim.system({ "tagr", "search", "-t", tag_name, "--json" }, { text = true }, function(obj)
+    local files = {}
+    if obj.code == 0 then
+      files = vim.json.decode(obj.stdout or "[]")
+    end
+
+    vim.schedule(function()
+      if #files == 0 then
+        vim.notify("tagr: No files with tag '" .. tag_name .. "'", vim.log.levels.INFO)
+        return
+      end
+
+      local items = {}
+      for _, f in ipairs(files) do
+        table.insert(items, {
+          text = string.format("%s \t[%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
+          file = f.file,
+        })
+      end
+
+      Snacks.picker({
+        title = "Files matching: #" .. tag_name,
+        items = items,
+        confirm = function(picker, item)
+          picker:close()
+          if item then
+            vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+          end
+        end,
+      })
+    end)
+  end)
+end
+
+-- Telescope delegate wrapper
+local telescope_picker = {}
+
+function telescope_picker.saved_filters_picker()
+  require("tagr.telescope").saved_filters_picker()
+end
+
+function telescope_picker.filtered_files_picker(filter)
+  require("tagr.telescope").filtered_files_picker(filter)
+end
+
+function telescope_picker.tag_search_picker()
+  require("tagr.telescope").tag_search_picker()
+end
+
+function telescope_picker.files_by_tag_picker(tag)
+  require("tagr.telescope").files_by_tag_picker(tag)
+end
+
+-- Exported unified functions mapping dynamically to standard backend implementations
+function M.saved_filters_picker()
+  local pt = get_picker_type()
+  if pt == "snacks" then
+    snacks_picker.saved_filters_picker()
+  elseif pt == "telescope" then
+    telescope_picker.saved_filters_picker()
+  else
+    ui_picker.saved_filters_picker()
+  end
+end
+
+function M.filtered_files_picker(filter_name)
+  local pt = get_picker_type()
+  if pt == "snacks" then
+    snacks_picker.filtered_files_picker(filter_name)
+  elseif pt == "telescope" then
+    telescope_picker.filtered_files_picker(filter_name)
+  else
+    ui_picker.filtered_files_picker(filter_name)
+  end
+end
+
+function M.tag_search_picker()
+  local pt = get_picker_type()
+  if pt == "snacks" then
+    snacks_picker.tag_search_picker()
+  elseif pt == "telescope" then
+    telescope_picker.tag_search_picker()
+  else
+    ui_picker.tag_search_picker()
+  end
+end
+
+function M.files_by_tag_picker(tag_name)
+  local pt = get_picker_type()
+  if pt == "snacks" then
+    snacks_picker.files_by_tag_picker(tag_name)
+  elseif pt == "telescope" then
+    telescope_picker.files_by_tag_picker(tag_name)
+  else
+    ui_picker.files_by_tag_picker(tag_name)
+  end
+end
+
+return M
