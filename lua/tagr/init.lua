@@ -74,8 +74,16 @@ M.config = {
 }
 
 function M.setup(opts)
+  opts = opts or {}
+  
+  -- Handle a boolean keymaps option gracefully (e.g. keymaps = false) to prevent deep extend
+  -- from replacing the configuration table structure with a boolean.
+  if type(opts.keymaps) == "boolean" then
+    opts.keymaps = { enabled = opts.keymaps }
+  end
+
   -- Deep merge options
-  M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+  M.config = vim.tbl_deep_extend("force", M.config, opts)
   
   -- Setup binary path in core api runner
   api.setup({ bin_path = M.config.bin_path })
@@ -121,31 +129,22 @@ function M.setup(opts)
   })
 
   -- Register default keyboard mappings with unique descriptions when enabled.
-  if M.config.keymaps.enabled then
-    vim.keymap.set("n", M.config.keymaps.add_tag, ui.prompt_add_tag, {
-      desc = "Tagr: Add tags to current file",
-      silent = true,
-    })
-    vim.keymap.set("n", M.config.keymaps.remove_tag, ui.prompt_remove_tag, {
-      desc = "Tagr: Remove tags from current file",
-      silent = true,
-    })
-    vim.keymap.set("n", M.config.keymaps.edit_note, ui.edit_note, {
-      desc = "Tagr: Overwrite / Edit whole file metadata notes",
-      silent = true,
-    })
-    vim.keymap.set("n", M.config.keymaps.add_note, ui.add_note_entry, {
-      desc = "Tagr: Append new timestamped note entry",
-      silent = true,
-    })
-    vim.keymap.set("n", M.config.keymaps.browse, ui.open_browse_tui, {
-      desc = "Tagr: Open interactive browse floating layout",
-      silent = true,
-    })
-    vim.keymap.set("n", M.config.keymaps.dashboard, dashboard.open_inspector, {
-      desc = "Tagr: Open metadata / tag dashboard dashboard",
-      silent = true,
-    })
+  -- Each keymap is checked to verify it is a valid string, enabling users to selectively 
+  -- disable unwanted keys (e.g. setting browse = false).
+  local keys = M.config.keymaps
+  if keys and keys.enabled then
+    local function map(lhs, rhs, desc)
+      if type(lhs) == "string" and lhs ~= "" then
+        vim.keymap.set("n", lhs, rhs, { desc = desc, silent = true })
+      end
+    end
+
+    map(keys.add_tag, ui.prompt_add_tag, "Tagr: Add tags to current file")
+    map(keys.remove_tag, ui.prompt_remove_tag, "Tagr: Remove tags from current file")
+    map(keys.edit_note, ui.edit_note, "Tagr: Overwrite / Edit whole file metadata notes")
+    map(keys.add_note, ui.add_note_entry, "Tagr: Append new timestamped note entry")
+    map(keys.browse, ui.open_browse_tui, "Tagr: Open interactive browse floating layout")
+    map(keys.dashboard, dashboard.open_inspector, "Tagr: Open metadata / tag dashboard dashboard")
   end
 end
 
