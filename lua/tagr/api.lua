@@ -1,9 +1,7 @@
 local M = {}
 
--- Helper to safely find the tagr binary (falls back to "tagr")
 M.bin_path = "tagr"
 
--- Initialize configuration path or environment overrides if needed
 function M.setup(opts)
   opts = opts or {}
   if opts.bin_path then
@@ -11,16 +9,17 @@ function M.setup(opts)
   end
 end
 
--- Utility to run tagr asynchronously and parse JSON output
 function M.run_tagr(args, callback)
-  -- Insert binary path
+  -- The tagr binary needs to be the first element when calling vim.system
   table.insert(args, 1, M.bin_path)
   
-  -- Use non-blocking Neovim system/spawn execution
+  -- vim.system is run in a separate system thread; main thread operations (like vim.notify
+  -- or buffer updates) must be scheduled back to prevent race conditions or crashes.
   vim.system(args, { text = true }, function(obj)
     if obj.code ~= 0 then
       vim.schedule(function()
-        -- Suppress warning if checking file that hasn't been added to database yet
+        -- Querying a file that hasn't been parsed yet is a common non-exceptional flow,
+        -- so we quiet the standard error logs for that specific path.
         if not (args[2] == "file" and args[3] == "show") then
           vim.notify("tagr.nvim error: " .. (obj.stderr or "Unknown error"), vim.log.levels.WARN)
         end
@@ -34,7 +33,7 @@ function M.run_tagr(args, callback)
     if callback then
       local stdout = obj.stdout or ""
       local parsed = nil
-      -- Only parse as JSON if it looks like a JSON array or object
+      -- Avoid JSON-decoding overhead and empty errors by checking the opening structure beforehand.
       local first_char = stdout:match("^%s*(%S)")
       if first_char == "{" or first_char == "[" then
         local success, result = pcall(vim.json.decode, stdout)
@@ -50,12 +49,10 @@ function M.run_tagr(args, callback)
   end)
 end
 
--- Get tags and notes metadata for a specific file
 function M.get_file_info(filepath, callback)
   M.run_tagr({ "file", "show", filepath, "--json" }, callback)
 end
 
--- Add tags to a file
 function M.add_tags(filepath, tags, callback)
   local args = { "tag", "-f", filepath, "-t" }
   for _, tag in ipairs(tags) do
@@ -64,7 +61,6 @@ function M.add_tags(filepath, tags, callback)
   M.run_tagr(args, callback)
 end
 
--- Remove specific tags from a file
 function M.remove_tags(filepath, tags, callback)
   local args = { "untag", "-f", filepath, "-t" }
   for _, tag in ipairs(tags) do

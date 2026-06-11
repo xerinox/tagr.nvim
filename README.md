@@ -121,11 +121,11 @@ require("tagr").setup({
 | :--- | :--- | :--- |
 | `:Tagr` | Dashboard | Open the metadata and tag management dashboard |
 | `:TagrAddTag [tag]` | `add_tag` | Add tag (prompts with autocompletion if no argument is passed) |
-| `:TagrRemoveTag [tag]`| `remove_tag` | Remove tag (prompts with local buffer tags autocomplete if empty) |
+| `:TagrRemoveTag [tag]` | `remove_tag` | Remove tag (prompts with local buffer tags autocomplete if empty) |
 | `:TagrNoteEdit` | `edit_note` | Edit markdown notes in a floating editor buffer |
 | `:TagrNoteAdd` | `add_note` | Append a new markdown entry to notes (adds timestamp automatically) |
 | `:TagrBrowse` | `browse` | Open the interactive `tagr browse` TUI in a floating terminal window |
-| `:TagrSearchTags [tag]`| Telescope picker | Choose from globally defined tags and list their target files |
+| `:TagrSearchTags [tag]` | Telescope picker | Choose from globally defined tags and list their target files |
 | `:TagrFilters [name]` | Telescope picker | Choose from saved tagr filters and view matched files |
 
 To define keymaps manually when `keymaps.enabled = false`:
@@ -167,6 +167,7 @@ require("tagr.picker").files_by_tag_picker("important")
 ```
 
 If you prefer to invoke Telescope-specific modules directly, you can still call:
+
 ```lua
 require("tagr.telescope").tag_search_picker()
 ```
@@ -198,5 +199,3 @@ require('lualine').setup({
 ## License
 
 MIT
-
-

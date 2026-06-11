@@ -1,6 +1,6 @@
 local M = {}
 
--- Safely load Telescope components
+-- Safely verify Telescope is fully loaded to prevent hard crashes for users who do not use Telescope as their active picker.
 local has_telescope, pickers = pcall(require, "telescope.pickers")
 if not has_telescope then
   return {
@@ -18,9 +18,7 @@ local conf = require("telescope.config").values
 local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 
--- Selection Picker mapping Saved Filters
 function M.saved_filters_picker()
-  -- Read saved filters via filter command
   vim.system({ "tagr", "filter", "list", "--json" }, { text = true }, function(obj)
     local filters = {}
     if obj.code == 0 then
@@ -51,7 +49,6 @@ function M.saved_filters_picker()
             actions.close(prompt_bufnr)
             local selection = action_state.get_selected_entry()
             if selection and selection.value then
-              -- Cascade search to match selected filter query
               M.filtered_files_picker(selection.value.name)
             end
           end)
@@ -62,7 +59,6 @@ function M.saved_filters_picker()
   end)
 end
 
--- Query and list selected filter tags
 function M.filtered_files_picker(filter_name)
   vim.system({ "tagr", "search", "-F", filter_name, "--json" }, { text = true }, function(obj)
     local files = {}

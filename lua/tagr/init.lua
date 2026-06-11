@@ -72,28 +72,26 @@ function M.setup(opts)
   -- Setup binary path in core api runner
   api.setup({ bin_path = M.config.bin_path })
   
-  -- Sync configuration options to the dashboard module
   if M.config.dashboard then
     dashboard.config = vim.tbl_deep_extend("force", dashboard.config, M.config.dashboard)
   end
 
-  -- Setup auto-commands to update buffer tags context & draw virtual text
   local group = vim.api.nvim_create_augroup("tagr_events", { clear = true })
   
-  -- Fetch buffer information on buffer load/save / navigation
+  -- Query file tags and show visual status overlays whenever entering or writing to a file.
   vim.api.nvim_create_autocmd({ "BufReadPost", "BufWritePost", "BufEnter" }, {
     group = group,
     pattern = "*",
     callback = function(ev)
       local bufnr = ev.buf
-      -- Skip empty/special buffers like telescope/quickfix buffers
-      if vim.api.nvim_buf_get_option(bufnr, "buftype") == "" then
+      -- Skip non-file buffers (like terminal logs, prompt lists, quickfix lists) to avoid superfluous shell queries.
+      if vim.bo[bufnr].buftype == "" then
         statusline.update_cache(bufnr)
       end
     end,
   })
 
-  -- Clear caches if buffer is deleted
+  -- Prevent memory leaks by cleaning up the active filepath cache entries when buffers are wiped out.
   vim.api.nvim_create_autocmd("BufWipeout", {
     group = group,
     pattern = "*",
@@ -105,7 +103,7 @@ function M.setup(opts)
     end,
   })
 
-  -- Custom User interaction trigger to force metadata refresh
+  -- Allow user processes or custom commands to manually notify tagr that metadata changed.
   vim.api.nvim_create_autocmd("User", {
     group = group,
     pattern = "TagrUpdate",
@@ -114,7 +112,7 @@ function M.setup(opts)
     end,
   })
 
-  -- Bind standard native keymaps using vim.keymap.set with proper descriptions
+  -- Register default keyboard mappings with unique descriptions when enabled.
   if M.config.keymaps.enabled then
     vim.keymap.set("n", M.config.keymaps.add_tag, ui.prompt_add_tag, {
       desc = "Tagr: Add tags to current file",

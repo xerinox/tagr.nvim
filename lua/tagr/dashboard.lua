@@ -3,14 +3,14 @@ local statusline = require("tagr.statusline")
 local ui = require("tagr.ui")
 local M = {}
 
--- Keep track of open inspector windows and state
+-- We cache inspector instances globally to reuse windows and prevent multiple competing panels.
 local inspector_win = nil
 local inspector_buf = nil
 local active_filepath = nil
 local active_tags = {}
 local all_tags = {}
 local active_note = nil
-local selection_index = 1 -- Used to navigate tag checkboxes
+local selection_index = 1
 
 M.config = {
   layout = "float", -- Default layout: "float" or "split"
@@ -23,7 +23,6 @@ M.config = {
   }
 }
 
--- Split note into distinct historical entries based on markdown horizontal dividers
 local function get_note_entries(content)
   if not content or content == "" then return {} end
   local raw_entries = vim.split(content, "\n%-%-%-+\r?\n")
@@ -37,14 +36,13 @@ local function get_note_entries(content)
   return entries
 end
 
--- Draw the neat dashboard UI lines
 local function redraw_inspector()
   if not inspector_buf or not vim.api.nvim_buf_is_valid(inspector_buf) then
     return
   end
 
-  -- Set buffer as modifiable to draw content lines
-  vim.api.nvim_buf_set_option(inspector_buf, "modifiable", true)
+  -- Enable editing momentarily to redraw the visual dashboard lines.
+  vim.bo[inspector_buf].modifiable = true
 
   local info_lines = {}
   table.insert(info_lines, "┌────────────────────────────────────────────────────────────────────────┐")
@@ -56,7 +54,6 @@ local function redraw_inspector()
   table.insert(info_lines, "  TAG MANAGEMENT: (Press <Enter> to toggle, <j/k> to hover, <g/G> to jump)")
   table.insert(info_lines, "")
 
-  -- Mapping tag selections with neat checkbox icons
   local start_tag_line = #info_lines + 1
   for i, tag in ipairs(all_tags) do
     local is_active = false
@@ -74,7 +71,6 @@ local function redraw_inspector()
 
   table.insert(info_lines, "  ────────────────────────────────────────────────────────────────────────")
   
-  -- Render newest notes if configured and populated
   local show_notes = M.config.notes.enabled and active_note and active_note.content ~= ""
   local note_start_line = nil
   if show_notes then
@@ -114,20 +110,17 @@ local function redraw_inspector()
   table.insert(info_lines, "└────────────────────────────────────────────────────────────────────────┘")
 
   vim.api.nvim_buf_set_lines(inspector_buf, 0, -1, false, info_lines)
-  vim.api.nvim_buf_set_option(inspector_buf, "modifiable", false)
+  vim.bo[inspector_buf].modifiable = false
 
-  -- Setup highlighting highlights dynamically
-  -- Highlight file paths and headers
+  -- Clear namespace first to prevent multiple overlapping highlights over redraw iterations.
   local ns_id = vim.api.nvim_create_namespace("tagr_dashboard")
   vim.api.nvim_buf_clear_namespace(inspector_buf, ns_id, 0, -1)
   
-  -- Style headers
   vim.api.nvim_buf_add_highlight(inspector_buf, ns_id, "Title", 1, 0, -1)
   vim.api.nvim_buf_add_highlight(inspector_buf, ns_id, "Directory", 3, 2, -1)
   vim.api.nvim_buf_add_highlight(inspector_buf, ns_id, "Comment", 6, 0, -1)
 
   if note_start_line then
-    -- Highlight "NEWEST NOTES:" header line
     vim.api.nvim_buf_add_highlight(inspector_buf, ns_id, "Special", note_start_line - 2, 0, -1)
   end
 
@@ -161,60 +154,49 @@ function M.open_inspector()
         end
       end
       
-      -- If there are no tags globally, add generic items to populate the list
+      -- Providing predefined tags acts as an intuitive fallback if the overall database is empty.
       if #all_tags == 0 then
         all_tags = { "todo", "docs", "working", "archived", "draft" }
       end
 
-      -- Sort tags alphabetically
+      -- Sort tags alphabetically to make scanning consistent of the list.
       table.sort(all_tags)
       selection_index = 1
 
-      -- Check and handle active buffers to close any existing ones first
       if inspector_win and vim.api.nvim_win_is_valid(inspector_win) then
         pcall(vim.api.nvim_win_close, inspector_win, true)
       end
 
-      -- Launch buffer structure
       inspector_buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_buf_set_option(inspector_buf, "bufhidden", "wipe")
-      vim.api.nvim_buf_set_option(inspector_buf, "filetype", "tagr_inspector")
+      vim.bo[inspector_buf].bufhidden = "wipe"
+      vim.bo[inspector_buf].filetype = "tagr_inspector"
 
-      -- Compute maximum width to fit the content cleanly and prevent layout cutoff
-      -- The dashboard text template has lines up to 76 characters, so use 76 as the absolute base minimum width.
+      -- Computes target margins automatically to prevent word truncation across varying system screen boundaries.
       local base_template_width = 76
       local max_width = base_template_width
       for _, tag in ipairs(all_tags) do
-        -- Account for the selection arrows, checkbox space, and margins (approx 10 chars)
         local line_len = #tag + 10
         if line_len > max_width then
           max_width = line_len
         end
       end
-      -- Ensure margins fit a reasonable threshold size but at least 76 chars to prevent cutoffs
       max_width = math.max(max_width, math.min(base_template_width, math.floor(vim.o.columns * 0.95)))
 
       local layout_mode = M.config.layout
       if layout_mode == "split" then
-        -- Handle Split Buffer rendering
         local split_cmd = M.config.split_direction == "vertical" and "botright vsplit" or "botright split"
         vim.cmd(split_cmd)
         
-        -- Resize split window dynamically to fit the content precisely if split is vertical
         local win = vim.api.nvim_get_current_win()
         if M.config.split_direction == "vertical" then
-          -- Auto-adjust split width to prevent visual truncation
           vim.api.nvim_win_set_width(win, max_width)
         else
           vim.api.nvim_win_set_height(win, M.config.split_size)
         end
         
-        -- Load buffer into current opened split
         vim.api.nvim_win_set_buf(win, inspector_buf)
         inspector_win = win
-      -- Default Floating layout
       else
-        -- Pre-load lines to compute dynamically adapted window height perfectly
         redraw_inspector()
         local rendered_lines = vim.api.nvim_buf_get_lines(inspector_buf, 0, -1, false)
 
@@ -235,29 +217,24 @@ function M.open_inspector()
         })
       end
 
-      -- Set default view parameters
-      vim.api.nvim_buf_set_option(inspector_buf, "buftype", "nofile")
+      vim.bo[inspector_buf].buftype = "nofile"
       
       redraw_inspector()
 
-      -- Helper actions keymappings inside Dashboard Panel
       local function map_key(mode, key, rhs, desc)
         vim.keymap.set(mode, key, rhs, { buffer = inspector_buf, silent = true, desc = desc })
       end
 
-      -- Move selection downwards
       map_key("n", "j", function()
         selection_index = math.min(selection_index + 1, #all_tags)
         redraw_inspector()
       end, "Dashboard: Hover Next Tag")
 
-      -- Move selection upwards
       map_key("n", "k", function()
         selection_index = math.max(selection_index - 1, 1)
         redraw_inspector()
       end, "Dashboard: Hover Previous Tag")
 
-      -- Jump to the first tag in the list (g)
       map_key("n", "g", function()
         selection_index = 1
         redraw_inspector()
@@ -267,13 +244,11 @@ function M.open_inspector()
         redraw_inspector()
       end, "Dashboard: Jump to first tag")
 
-      -- Jump to the last tag in the list (G)
       map_key("n", "G", function()
         selection_index = #all_tags
         redraw_inspector()
       end, "Dashboard: Jump to last tag")
 
-      -- Toggle selected Tag
       map_key("n", "<CR>", function()
         local target_tag = all_tags[selection_index]
         local is_already_tagged = false
