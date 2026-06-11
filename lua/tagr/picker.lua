@@ -263,9 +263,9 @@ function snacks_picker.filtered_files_picker(filter_name)
   end)
 end
 
-function snacks_picker.tag_search_picker()
-  -- We need both tags list AND the files-per-tag to build the preview.
-  -- First fetch all tags, then for each tag fetch files to build preview text.
+function snacks_picker.tag_search_picker(initial_pattern)
+  -- Fetch all tags and let the picker's built-in fuzzy matcher handle filtering,
+  -- so users get fuzzy search over tags without requiring exact CLI matches.
   api.list("tags", function(tags_list)
     if type(tags_list) ~= "table" then tags_list = {} end
     if #tags_list == 0 then
@@ -306,6 +306,7 @@ function snacks_picker.tag_search_picker()
             items = items,
             preview = "preview",
             format = format_tag_item,
+            pattern = initial_pattern,
             confirm = function(picker, item)
               picker:close()
               if item and item.tag_name then
@@ -396,10 +397,33 @@ function M.filtered_files_picker(filter_name)
   end
 end
 
-function M.tag_search_picker()
+function M.tag_search_picker(initial_pattern)
   local pt = get_picker_type()
+
+  -- If an exact tag name was provided (e.g. from command-line autocomplete), skip straight to the files picker.
+  if initial_pattern and initial_pattern ~= "" then
+    api.list("tags", function(tags_list)
+      if type(tags_list) ~= "table" then tags_list = {} end
+      for _, t in ipairs(tags_list) do
+        if t.name == initial_pattern then
+          M.files_by_tag_picker(initial_pattern)
+          return
+        end
+      end
+      -- No exact match found, fall through to the fuzzy tag picker with the pattern pre-filled.
+      if pt == "snacks" then
+        snacks_picker.tag_search_picker(initial_pattern)
+      elseif pt == "telescope" then
+        telescope_picker.tag_search_picker()
+      else
+        ui_picker.tag_search_picker()
+      end
+    end)
+    return
+  end
+
   if pt == "snacks" then
-    snacks_picker.tag_search_picker()
+    snacks_picker.tag_search_picker(initial_pattern)
   elseif pt == "telescope" then
     telescope_picker.tag_search_picker()
   else

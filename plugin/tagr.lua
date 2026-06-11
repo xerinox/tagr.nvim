@@ -88,13 +88,10 @@ vim.api.nvim_create_user_command("Tagr", function()
 end, {})
 
 -- Accepts optional tag parameters, e.g. :TagrSearchTags notes
+-- With a param, pre-fills the tag picker search field for fuzzy matching instead of exact CLI lookup
 vim.api.nvim_create_user_command("TagrSearchTags", function(opts)
   local picker = require("tagr.picker")
-  if opts.args ~= "" then
-    picker.files_by_tag_picker(opts.args)
-  else
-    picker.tag_search_picker()
-  end
+  picker.tag_search_picker(opts.args ~= "" and opts.args or nil)
 end, {
   nargs = "?",
   complete = function(arg_lead)
