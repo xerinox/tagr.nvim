@@ -104,6 +104,7 @@ end
 
 -- Telescope Picker listing files of a specfic Tag input
 function M.tag_search_picker()
+  local pickers_dep = require("telescope.pickers")
   vim.system({ "tagr", "list", "tags", "--json" }, { text = true }, function(obj)
     local tags_list = {}
     if obj.code == 0 then
@@ -116,7 +117,7 @@ function M.tag_search_picker()
         return
       end
 
-      pickers.new({}, {
+      pickers_dep.new({}, {
         prompt_title = "Select Tag",
         finder = finders.new_table({
           results = tags_list,
@@ -134,7 +135,9 @@ function M.tag_search_picker()
             actions.close(prompt_bufnr)
             local selection = action_state.get_selected_entry()
             if selection then
-              M.files_by_tag_picker(selection.value)
+              -- Pass back to unified picker wrapper
+              local picker = require("tagr.picker")
+              picker.files_by_tag_picker(selection.value)
             end
           end)
           return true
