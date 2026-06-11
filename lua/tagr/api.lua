@@ -83,4 +83,9 @@ function M.list(variant, callback)
   M.run_tagr({ "list", variant, "--json" }, callback)
 end
 
+-- List all saved filter configurations
+function M.list_filters(callback)
+  M.run_tagr({ "filter", "list", "--json" }, callback)
+end
+
 return M

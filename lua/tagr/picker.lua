@@ -31,109 +31,89 @@ end
 local ui_picker = {}
 
 function ui_picker.saved_filters_picker()
-  vim.system({ "tagr", "filter", "list", "--json" }, { text = true }, function(obj)
-    local filters = {}
-    if obj.code == 0 then
-      filters = vim.json.decode(obj.stdout or "[]")
+  api.list_filters(function(filters)
+    if type(filters) ~= "table" then filters = {} end
+
+    if #filters == 0 then
+      vim.notify("tagr: No saved filters found", vim.log.levels.INFO)
+      return
     end
 
-    vim.schedule(function()
-      if #filters == 0 then
-        vim.notify("tagr: No saved filters found", vim.log.levels.INFO)
-        return
+    vim.ui.select(filters, {
+      prompt = "Select Saved Filter:",
+      format_item = function(item)
+        return string.format("%s — %s", item.name, item.description or "No description")
       end
-
-      vim.ui.select(filters, {
-        prompt = "Select Saved Filter:",
-        format_item = function(item)
-          return string.format("%s — %s", item.name, item.description or "No description")
-        end
-      }, function(choice)
-        if choice then
-          M.filtered_files_picker(choice.name)
-        end
-      end)
+    }, function(choice)
+      if choice then
+        M.filtered_files_picker(choice.name)
+      end
     end)
   end)
 end
 
 function ui_picker.filtered_files_picker(filter_name)
-  vim.system({ "tagr", "search", "-F", filter_name, "--json" }, { text = true }, function(obj)
-    local files = {}
-    if obj.code == 0 then
-      files = vim.json.decode(obj.stdout or "[]")
+  api.search({ "-F", filter_name }, function(files)
+    if type(files) ~= "table" then files = {} end
+
+    if #files == 0 then
+      vim.notify("tagr: No files matched filter '" .. filter_name .. "'", vim.log.levels.INFO)
+      return
     end
 
-    vim.schedule(function()
-      if #files == 0 then
-        vim.notify("tagr: No files matched filter '" .. filter_name .. "'", vim.log.levels.INFO)
-        return
+    vim.ui.select(files, {
+      prompt = "Files matching: " .. filter_name,
+      format_item = function(item)
+        return string.format("%s [%s]", vim.fs.basename(item.file), table.concat(item.tags, ", "))
       end
-
-      vim.ui.select(files, {
-        prompt = "Files matching: " .. filter_name,
-        format_item = function(item)
-          return string.format("%s [%s]", vim.fs.basename(item.file), table.concat(item.tags, ", "))
-        end
-      }, function(choice)
-        if choice then
-          vim.cmd("edit " .. vim.fn.fnameescape(choice.file))
-        end
-      end)
+    }, function(choice)
+      if choice then
+        vim.cmd("edit " .. vim.fn.fnameescape(choice.file))
+      end
     end)
   end)
 end
 
 function ui_picker.tag_search_picker()
-  vim.system({ "tagr", "list", "tags", "--json" }, { text = true }, function(obj)
-    local tags_list = {}
-    if obj.code == 0 then
-      tags_list = vim.json.decode(obj.stdout or "[]")
+  api.list("tags", function(tags_list)
+    if type(tags_list) ~= "table" then tags_list = {} end
+
+    if #tags_list == 0 then
+      vim.notify("tagr: No tags found in database", vim.log.levels.INFO)
+      return
     end
 
-    vim.schedule(function()
-      if #tags_list == 0 then
-        vim.notify("tagr: No tags found in database", vim.log.levels.INFO)
-        return
+    vim.ui.select(tags_list, {
+      prompt = "Select Tag:",
+      format_item = function(item)
+        return string.format("%s (%d files)", item.name, item.file_count)
       end
-
-      vim.ui.select(tags_list, {
-        prompt = "Select Tag:",
-        format_item = function(item)
-          return string.format("%s (%d files)", item.name, item.file_count)
-        end
-      }, function(choice)
-        if choice then
-          M.files_by_tag_picker(choice.name)
-        end
-      end)
+    }, function(choice)
+      if choice then
+        M.files_by_tag_picker(choice.name)
+      end
     end)
   end)
 end
 
 function ui_picker.files_by_tag_picker(tag_name)
-  vim.system({ "tagr", "search", "-t", tag_name, "--json" }, { text = true }, function(obj)
-    local files = {}
-    if obj.code == 0 then
-      files = vim.json.decode(obj.stdout or "[]")
+  api.search({ "-t", tag_name }, function(files)
+    if type(files) ~= "table" then files = {} end
+
+    if #files == 0 then
+      vim.notify("tagr: No files with tag '" .. tag_name .. "'", vim.log.levels.INFO)
+      return
     end
 
-    vim.schedule(function()
-      if #files == 0 then
-        vim.notify("tagr: No files with tag '" .. tag_name .. "'", vim.log.levels.INFO)
-        return
+    vim.ui.select(files, {
+      prompt = "Files with tag: " .. tag_name,
+      format_item = function(item)
+        return string.format("%s [%s]", vim.fs.basename(item.file), table.concat(item.tags, ", "))
       end
-
-      vim.ui.select(files, {
-        prompt = "Files with tag: " .. tag_name,
-        format_item = function(item)
-          return string.format("%s [%s]", vim.fs.basename(item.file), table.concat(item.tags, ", "))
-        end
-      }, function(choice)
-        if choice then
-          vim.cmd("edit " .. vim.fn.fnameescape(choice.file))
-        end
-      end)
+    }, function(choice)
+      if choice then
+        vim.cmd("edit " .. vim.fn.fnameescape(choice.file))
+      end
     end)
   end)
 end
@@ -142,65 +122,59 @@ end
 local snacks_picker = {}
 
 function snacks_picker.saved_filters_picker()
-  vim.system({ "tagr", "filter", "list", "--json" }, { text = true }, function(obj)
-    local filters = {}
-    if obj.code == 0 then
-      filters = vim.json.decode(obj.stdout or "[]")
+  api.list_filters(function(filters)
+    if type(filters) ~= "table" then filters = {} end
+
+    if #filters == 0 then
+      vim.notify("tagr: No saved filters found", vim.log.levels.INFO)
+      return
     end
 
-    vim.schedule(function()
-      if #filters == 0 then
-        vim.notify("tagr: No saved filters found", vim.log.levels.INFO)
-        return
-      end
+    local items = {}
+    for _, f in ipairs(filters) do
+      table.insert(items, {
+        text = string.format("%-20s │ %s", f.name, f.description or "No description"),
+        value = f.name,
+        name = f.name,
+      })
+    end
 
-      local items = {}
-      for _, f in ipairs(filters) do
-        table.insert(items, {
-          text = string.format("%-20s │ %s", f.name, f.description or "No description"),
-          value = f.name,
-          name = f.name,
-        })
-      end
-
-      Snacks.picker({
-        title = "Tagr Saved Filters",
-        items = items,
+    Snacks.picker({
+      title = "Tagr Saved Filters",
+      items = items,
+      actions = {
         confirm = function(picker, item)
           picker:close()
           if item then
             M.filtered_files_picker(item.value)
           end
         end,
-      })
-    end)
+      },
+    })
   end)
 end
 
 function snacks_picker.filtered_files_picker(filter_name)
-  vim.system({ "tagr", "search", "-F", filter_name, "--json" }, { text = true }, function(obj)
-    local files = {}
-    if obj.code == 0 then
-      files = vim.json.decode(obj.stdout or "[]")
+  api.search({ "-F", filter_name }, function(files)
+    if type(files) ~= "table" then files = {} end
+
+    if #files == 0 then
+      vim.notify("tagr: No files matched filter '" .. filter_name .. "'", vim.log.levels.INFO)
+      return
     end
 
-    vim.schedule(function()
-      if #files == 0 then
-        vim.notify("tagr: No files matched filter '" .. filter_name .. "'", vim.log.levels.INFO)
-        return
-      end
+    local items = {}
+    for _, f in ipairs(files) do
+      table.insert(items, {
+        text = string.format("%s [%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
+        file = f.file,
+      })
+    end
 
-      local items = {}
-      for _, f in ipairs(files) do
-        table.insert(items, {
-          text = string.format("%s [%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
-          file = f.file,
-        })
-      end
-
-      Snacks.picker({
-        title = "Files matching: " .. filter_name,
-        items = items,
+    Snacks.picker({
+      title = "Files matching: " .. filter_name,
+      items = items,
+      actions = {
         confirm = function(picker, item)
           picker:close()
           -- In Snacks.picker, the selected item is wrapped inside a structure. 
@@ -210,35 +184,32 @@ function snacks_picker.filtered_files_picker(filter_name)
             vim.cmd("edit " .. vim.fn.fnameescape(item.file))
           end
         end,
-      })
-    end)
+      },
+    })
   end)
 end
 
 function snacks_picker.tag_search_picker()
-  vim.system({ "tagr", "list", "tags", "--json" }, { text = true }, function(obj)
-    local tags_list = {}
-    if obj.code == 0 then
-      tags_list = vim.json.decode(obj.stdout or "[]")
+  api.list("tags", function(tags_list)
+    if type(tags_list) ~= "table" then tags_list = {} end
+
+    if #tags_list == 0 then
+      vim.notify("tagr: No tags found in database", vim.log.levels.INFO)
+      return
     end
 
-    vim.schedule(function()
-      if #tags_list == 0 then
-        vim.notify("tagr: No tags found in database", vim.log.levels.INFO)
-        return
-      end
+    local items = {}
+    for _, t in ipairs(tags_list) do
+      table.insert(items, {
+        text = string.format("%-25s (%d files)", t.name, t.file_count),
+        value = t.name,
+      })
+    end
 
-      local items = {}
-      for _, t in ipairs(tags_list) do
-        table.insert(items, {
-          text = string.format("%-25s (%d files)", t.name, t.file_count),
-          value = t.name,
-        })
-      end
-
-      Snacks.picker({
-        title = "Select Tag",
-        items = items,
+    Snacks.picker({
+      title = "Select Tag",
+      items = items,
+      actions = {
         confirm = function(picker, item)
           picker:close()
           -- Extract the target tag name from the item's custom value table structure.
@@ -246,43 +217,40 @@ function snacks_picker.tag_search_picker()
             M.files_by_tag_picker(item.value)
           end
         end,
-      })
-    end)
+      },
+    })
   end)
 end
 
 function snacks_picker.files_by_tag_picker(tag_name)
-  vim.system({ "tagr", "search", "-t", tag_name, "--json" }, { text = true }, function(obj)
-    local files = {}
-    if obj.code == 0 then
-      files = vim.json.decode(obj.stdout or "[]")
+  api.search({ "-t", tag_name }, function(files)
+    if type(files) ~= "table" then files = {} end
+
+    if #files == 0 then
+      vim.notify("tagr: No files with tag '" .. tag_name .. "'", vim.log.levels.INFO)
+      return
     end
 
-    vim.schedule(function()
-      if #files == 0 then
-        vim.notify("tagr: No files with tag '" .. tag_name .. "'", vim.log.levels.INFO)
-        return
-      end
+    local items = {}
+    for _, f in ipairs(files) do
+      table.insert(items, {
+        text = string.format("%s \t[%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
+        file = f.file,
+      })
+    end
 
-      local items = {}
-      for _, f in ipairs(files) do
-        table.insert(items, {
-          text = string.format("%s \t[%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
-          file = f.file,
-        })
-      end
-
-      Snacks.picker({
-        title = "Files matching: #" .. tag_name,
-        items = items,
+    Snacks.picker({
+      title = "Files matching: #" .. tag_name,
+      items = items,
+      actions = {
         confirm = function(picker, item)
           picker:close()
           if item and item.file then
             vim.cmd("edit " .. vim.fn.fnameescape(item.file))
           end
         end,
-      })
-    end)
+      },
+    })
   end)
 end
 
