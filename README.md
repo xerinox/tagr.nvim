@@ -29,7 +29,7 @@ tagr --version
 
 ## Installation
 
-Install using your preferred Neovim package manager.
+Install using your preferred Neovim package manager. Note that pickers (Telescope or Snacks) are strictly optional; if none are installed, the plugin will seamlessly fall back to using native Neovim select menus (`vim.ui.select`).
 
 ### Using [lazy.nvim](https://github.com/folke/lazy.nvim)
 
@@ -37,8 +37,9 @@ Install using your preferred Neovim package manager.
 {
   "xerinox/tagr.nvim",
   dependencies = {
-    "nvim-lua/plenary.nvim",
-    "nvim-telescope/telescope.nvim", -- Optional: for file pickers/search
+    -- Optional: Only if you want fuzzy-search pickers
+    "nvim-telescope/telescope.nvim", 
+    -- Alternatively, "folke/snacks.nvim" is fully supported out of the box
   },
   config = function()
     require("tagr").setup({
@@ -56,8 +57,7 @@ Install using your preferred Neovim package manager.
 use {
   'xerinox/tagr.nvim',
   requires = {
-    'nvim-lua/plenary.nvim',
-    'nvim-telescope/telescope.nvim' -- Optional
+    'nvim-telescope/telescope.nvim' -- Optional: for fuzzy search layouts
   },
   config = function()
     require('tagr').setup({
