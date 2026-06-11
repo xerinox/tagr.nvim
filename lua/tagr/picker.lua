@@ -143,17 +143,20 @@ end
 -- Format function for the tag list picker rows
 local function format_tag_item(item)
   local ret = {}
-  ret[#ret + 1] = { string.format("%-25s", "#" .. item.tag_name), "SnacksPickerLabel" }
-  ret[#ret + 1] = { string.format("%d files", item.file_count), "SnacksPickerComment" }
+  ret[#ret + 1] = { " ", "SnacksPickerLabel" }
+  ret[#ret + 1] = { string.format("%-25s ", item.tag_name), "SnacksPickerLabel" }
+  ret[#ret + 1] = { string.format("(%d files)", item.file_count), "SnacksPickerComment" }
   return ret
 end
 
 -- Format function for the file list picker rows
 local function format_file_item(item)
   local ret = {}
-  local note_indicator = item.has_note and (get_note_glyph() .. " ") or ""
-  ret[#ret + 1] = { note_indicator, "SnacksPickerSpecial" }
-  ret[#ret + 1] = { string.format("%-30s", vim.fs.basename(item.file or "")), "SnacksPickerLabel" }
+  local note_glyph = get_note_glyph()
+  -- Fixed-width note column so filenames stay aligned regardless of note presence
+  local note_col = item.has_note and (note_glyph .. " ") or string.rep(" ", vim.fn.strdisplaywidth(note_glyph) + 1)
+  ret[#ret + 1] = { note_col, "SnacksPickerSpecial" }
+  ret[#ret + 1] = { string.format("%-30s ", vim.fs.basename(item.file or "")), "SnacksPickerLabel" }
   ret[#ret + 1] = { table.concat(item.tags or {}, ", "), "SnacksPickerComment" }
   return ret
 end
