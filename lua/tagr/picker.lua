@@ -179,6 +179,12 @@ local function file_preview(ctx)
     ctx.preview:set_lines({ "Binary file: " .. vim.fs.basename(ctx.item.file) })
     return
   end
+  local stat = (vim.uv or vim.loop).fs_stat(ctx.item.file)
+  if not stat or stat.size == 0 then
+    ctx.preview:reset()
+    ctx.preview:set_lines({ "Empty file: " .. vim.fs.basename(ctx.item.file) })
+    return
+  end
   require("snacks.picker.preview").file(ctx)
 end
 
