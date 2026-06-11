@@ -1,6 +1,6 @@
 # tagr.nvim
 
-`tagr.nvim` is a Neovim plugin for **tagr**—the filesystem tagging and metadata organization CLI. It provides interactive prompts, metadata dashboards, Telescope pickers, and asynchronous workflows, allowing you to organize, search, and navigate tagged files.
+`tagr.nvim` is a Neovim plugin for **tagr**—the filesystem tagging and metadata organization CLI. It provides interactive prompts, metadata dashboards, fuzzy-finding pickers, and asynchronous workflows, allowing you to organize, search, and navigate tagged files.
 
 ---
 
@@ -8,7 +8,7 @@
 
 - **Asynchronous Execution**: Interacts with the `tagr` Go binary using non-blocking Neovim systems, preventing UI freezes.
 - **Dashboard Inspector**: Hover-based floating or split panel to view file metadata, toggle tags via checkboxes, see notes history, and edit metadata.
-- **Telescope Integration**: Fuzzy-find files by tags or saved filter configurations.
+- **Fuzzy Finder Integration**: Native support for **Telescope** and **Snacks.picker** as picker backends, alongside a built-in `vim.ui.select` fallback.
 - **Markdown Notes Editor**: Access dedicated visual editor buffers to append or overwrite file notes with timestamped logs.
 - **Tag Autocompletion**: Tab completion matches global and buffer-local tag indices seamlessly.
 - **Virtual Text Overlays**: Render current file tags and note indicators right-aligned on the first line of active buffers.
@@ -80,6 +80,9 @@ require("tagr").setup({
   -- Command executable or absolute path
   bin_path = "tagr",
 
+  -- Selected picker backend: "auto" (autodetects Snacks -> Telescope -> vim.ui.select), "telescope", "snacks", or "ui"
+  picker = "auto",
+
   -- Configure buffer overlay metadata
   virtual_text = {
     enabled = true,
@@ -148,19 +151,24 @@ Within the inspector panel opened via `:Tagr` or custom keymaps, navigate with t
 
 ---
 
-## Telescope Pickers
+## Pickers and Search
 
-Integrate with Telescope workflows to query tags and filters:
+Integrate with your pickers manually using the unified picker API. This automatically respects your configured picker backend (`snacks`, `telescope`, or built-in `vim.ui.select`):
 
 ```lua
 -- List saved filters to view match groups
-require("tagr.telescope").saved_filters_picker()
+require("tagr.picker").saved_filters_picker()
 
 -- Search through all tags interactively
-require("tagr.telescope").tag_search_picker()
+require("tagr.picker").tag_search_picker()
 
 -- Search files containing a specific tag directly
-require("tagr.telescope").files_by_tag_picker("important")
+require("tagr.picker").files_by_tag_picker("important")
+```
+
+If you prefer to invoke Telescope-specific modules directly, you can still call:
+```lua
+require("tagr.telescope").tag_search_picker()
 ```
 
 ---

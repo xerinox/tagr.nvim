@@ -151,5 +151,6 @@ M.add_note = ui.add_note_entry
 M.browse = ui.open_browse_tui
 M.show_tags = statusline.get_statusline_tags
 M.open_dashboard = dashboard.open_inspector
+M.picker = require("tagr.picker")
 
 return M
