@@ -158,6 +158,30 @@ local function format_file_item(item)
   return ret
 end
 
+-- Check if a file path looks like a binary file based on extension
+local binary_exts = {
+  zip = true, tar = true, gz = true, tgz = true, zst = true, pkg = true, xz = true, bz2 = true,
+  pdf = true, png = true, jpg = true, jpeg = true, gif = true, webp = true, ico = true, bmp = true,
+  mp4 = true, mov = true, avi = true, mkv = true, mp3 = true, flac = true, wav = true,
+  exe = true, bin = true, o = true, so = true, dylib = true, dll = true,
+  db = true, sqlite = true, sqlite3 = true,
+}
+local function is_binary_path(path)
+  local ext = path:match("%.([^%.]+)$")
+  return ext and binary_exts[ext:lower()] or false
+end
+
+-- Custom preview for file items: shows file content for text files, a simple message for binary
+local function file_preview(ctx)
+  if not ctx.item.file then return end
+  if is_binary_path(ctx.item.file) then
+    ctx.preview:reset()
+    ctx.preview:set_lines({ "Binary file: " .. vim.fs.basename(ctx.item.file) })
+    return
+  end
+  require("snacks.picker.preview").file(ctx)
+end
+
 function snacks_picker.saved_filters_picker()
   api.list_filters(function(filters)
     if type(filters) ~= "table" then filters = {} end
@@ -217,12 +241,7 @@ function snacks_picker.filtered_files_picker(filter_name)
       title = "Files matching: " .. filter_name,
       items = items,
       format = format_file_item,
-      preview = function(ctx)
-        if ctx.item.file then
-          require("snacks.picker.preview").file(ctx)
-        end
-        return true
-      end,
+      preview = file_preview,
       confirm = function(picker, item)
         picker:close()
         if item and item.file then
@@ -313,12 +332,7 @@ function snacks_picker.files_by_tag_picker(tag_name)
       title = "Files matching: #" .. tag_name,
       items = items,
       format = format_file_item,
-      preview = function(ctx)
-        if ctx.item.file then
-          require("snacks.picker.preview").file(ctx)
-        end
-        return true
-      end,
+      preview = file_preview,
       confirm = function(picker, item)
         picker:close()
         if item and item.file then
