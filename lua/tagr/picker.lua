@@ -142,6 +142,11 @@ function snacks_picker.saved_filters_picker()
     Snacks.picker({
       title = "Tagr Saved Filters",
       items = items,
+      format = "text", -- Force 'text' formatter to prevent Snacks from falling back to 'file' formatting and drawing blank links
+      layout = {
+        preset = "select", -- Force the compact select layout preset which hides the preview pane
+      },
+      preview = "none", -- Disable custom previews entirely for list menus to avoid the file-lookup fallback error
       actions = {
         confirm = function(picker, item)
           picker:close()
@@ -151,6 +156,8 @@ function snacks_picker.saved_filters_picker()
         end,
       },
     })
+  end)
+end
   end)
 end
 
@@ -209,6 +216,11 @@ function snacks_picker.tag_search_picker()
     Snacks.picker({
       title = "Select Tag",
       items = items,
+      format = "text", -- Force 'text' formatter to prevent Snacks from falling back to 'file' formatting and drawing blank links
+      layout = {
+        preset = "select", -- Force the compact select layout preset which hides the preview pane
+      },
+      preview = "none", -- Disable custom previews entirely for list menus to avoid the file-lookup fallback error
       actions = {
         confirm = function(picker, item)
           picker:close()
@@ -219,6 +231,8 @@ function snacks_picker.tag_search_picker()
         end,
       },
     })
+  end)
+end
   end)
 end
 
