@@ -8,7 +8,8 @@
 
 - **Asynchronous Execution**: Interacts with the `tagr` Go binary using non-blocking Neovim systems, preventing UI freezes.
 - **Dashboard Inspector**: Hover-based floating or split panel to view file metadata, toggle tags via checkboxes, see notes history, and edit metadata.
-- **Fuzzy Finder Integration**: Native support for **Telescope** and **Snacks.picker** as picker backends, alongside a built-in `vim.ui.select` fallback.
+- **Fuzzy Finder Integration**: Native support for **Snacks.picker** and **Telescope** as picker backends, with styled format columns, file previews, and binary-file handling. Falls back to built-in `vim.ui.select` when neither is installed.
+- **Fuzzy Tag Search**: Tag searches use the picker's built-in fuzzy matcher — typing a partial tag name narrows the list live. Exact matches from command-line autocomplete skip the tag picker and jump straight to matching files.
 - **Markdown Notes Editor**: Access dedicated visual editor buffers to append or overwrite file notes with timestamped logs.
 - **Tag Autocompletion**: Tab completion matches global and buffer-local tag indices seamlessly.
 - **Virtual Text Overlays**: Render current file tags and note indicators right-aligned on the first line of active buffers.
@@ -135,8 +136,8 @@ require("tagr").setup({
 | `:TagrNoteEdit` | `edit_note` | Edit markdown notes in a floating editor buffer |
 | `:TagrNoteAdd` | `add_note` | Append a new markdown entry to notes (adds timestamp automatically) |
 | `:TagrBrowse` | `browse` | Open the interactive `tagr browse` TUI in a floating terminal window |
-| `:TagrSearchTags [tag]` | Telescope picker | Choose from globally defined tags and list their target files |
-| `:TagrFilters [name]` | Telescope picker | Choose from saved tagr filters and view matched files |
+| `:TagrSearchTags [tag]` | Fuzzy picker | Fuzzy-search tags; exact match skips to files, partial opens the tag picker pre-filled |
+| `:TagrFilters [name]` | Fuzzy picker | Choose from saved tagr filters and view matched files |
 
 To define keymaps manually when `keymaps.enabled = false`:
 
@@ -163,24 +164,27 @@ Within the inspector panel opened via `:Tagr` or custom keymaps, navigate with t
 
 ## Pickers and Search
 
-Integrate with your pickers manually using the unified picker API. This automatically respects your configured picker backend (`snacks`, `telescope`, or built-in `vim.ui.select`):
+The picker system provides a two-step workflow for tag-based file navigation:
+
+1. **Tag picker** — Lists all tags with file counts. The preview pane shows which files belong to each tag. Fuzzy filtering narrows the list as you type.
+2. **File picker** — After selecting a tag, a second picker shows matching files with syntax-highlighted previews. Files with notes display a note indicator in the list.
+
+Binary and empty files are handled gracefully in preview (no debug table dumps).
+
+Use the unified picker API directly if needed:
 
 ```lua
--- List saved filters to view match groups
-require("tagr.picker").saved_filters_picker()
+-- Open the fuzzy tag picker (optional pattern pre-fills the search field)
+require("tagr.picker").tag_search_picker("rust")
 
--- Search through all tags interactively
-require("tagr.picker").tag_search_picker()
-
--- Search files containing a specific tag directly
+-- Skip straight to files for a known tag
 require("tagr.picker").files_by_tag_picker("important")
+
+-- Browse saved filters
+require("tagr.picker").saved_filters_picker()
 ```
 
-If you prefer to invoke Telescope-specific modules directly, you can still call:
-
-```lua
-require("tagr.telescope").tag_search_picker()
-```
+All pickers support `<C-q>` to send results to the quickfix list.
 
 ---
 
