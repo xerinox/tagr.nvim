@@ -57,21 +57,21 @@ Install using your preferred Neovim package manager. Note that pickers (Telescop
 If you use Neovim's built-in package system or a modern loader like `mini.deps` with `vim.pack.add`:
 
 ```lua
-require("lazyload").on_event("BufReadPost", function()
-  -- Download and load tagr.nvim from GitHub
-  vim.pack.add({
-    { src = "https://github.com/xerinox/tagr.nvim" },
-  })
+-- Add the plugin to your package manager loadout.
+-- This ensures the plugin is immediately added to the runtimepath on boot (e.g. for `nvim .` netrw/oil directories).
+vim.pack.add({
+  { src = "https://github.com/xerinox/tagr.nvim" },
+})
 
-  local ok, tagr = pcall(require, 'tagr')
-  if not ok then return end
-
+-- Initialize and bind parameters immediately so commands like `:Tagr` are defined before reading directories
+local ok, tagr = pcall(require, 'tagr')
+if ok then
   tagr.setup({
     keymaps = {
       enabled = true,
     }
   })
-end)
+end
 ```
 
 ### Using [packer.nvim](https://github.com/wbthomason/packer.nvim)
