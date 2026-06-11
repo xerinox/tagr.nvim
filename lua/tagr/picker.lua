@@ -158,8 +158,6 @@ function snacks_picker.saved_filters_picker()
     })
   end)
 end
-  end)
-end
 
 function snacks_picker.filtered_files_picker(filter_name)
   api.search({ "-F", filter_name }, function(files)
