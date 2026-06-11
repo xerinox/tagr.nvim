@@ -203,7 +203,10 @@ function snacks_picker.filtered_files_picker(filter_name)
         items = items,
         confirm = function(picker, item)
           picker:close()
-          if item then
+          -- In Snacks.picker, the selected item is wrapped inside a structure. 
+          -- We must read from item.file (since we populated it inside items), or fallback 
+          -- to reading from item[1] or item.text depending on the state of the object.
+          if item and item.file then
             vim.cmd("edit " .. vim.fn.fnameescape(item.file))
           end
         end,
@@ -238,7 +241,8 @@ function snacks_picker.tag_search_picker()
         items = items,
         confirm = function(picker, item)
           picker:close()
-          if item then
+          -- Extract the target tag name from the item's custom value table structure.
+          if item and item.value then
             M.files_by_tag_picker(item.value)
           end
         end,
@@ -273,7 +277,7 @@ function snacks_picker.files_by_tag_picker(tag_name)
         items = items,
         confirm = function(picker, item)
           picker:close()
-          if item then
+          if item and item.file then
             vim.cmd("edit " .. vim.fn.fnameescape(item.file))
           end
         end,
