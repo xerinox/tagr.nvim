@@ -186,6 +186,8 @@ local function file_preview(ctx)
     return
   end
   require("snacks.picker.preview").file(ctx)
+  -- Reset cursor to top of file so preview starts from line 1
+  pcall(vim.api.nvim_win_set_cursor, ctx.win, { 1, 0 })
 end
 
 function snacks_picker.saved_filters_picker()
