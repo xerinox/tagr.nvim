@@ -52,6 +52,28 @@ Install using your preferred Neovim package manager. Note that pickers (Telescop
 }
 ```
 
+### Using Neovim packages (`vim.pack.add` / `mini.deps`)
+
+If you use Neovim's built-in package system or a modern loader like `mini.deps` with `vim.pack.add`:
+
+```lua
+require("lazyload").on_event("BufReadPost", function()
+  -- Download and load tagr.nvim from GitHub
+  vim.pack.add({
+    { src = "https://github.com/xerinox/tagr.nvim" },
+  })
+
+  local ok, tagr = pcall(require, 'tagr')
+  if not ok then return end
+
+  tagr.setup({
+    keymaps = {
+      enabled = true,
+    }
+  })
+end)
+```
+
 ### Using [packer.nvim](https://github.com/wbthomason/packer.nvim)
 
 ```lua
