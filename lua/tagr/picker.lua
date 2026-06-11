@@ -121,10 +121,46 @@ end
 -- Snacks.picker implementation
 local snacks_picker = {}
 
+-- Resolve the configured note glyph for display in picker rows
+local function get_note_glyph()
+  local tagr_main = package.loaded["tagr"]
+  if tagr_main and tagr_main.config and tagr_main.config.glyphs then
+    return tagr_main.config.glyphs.note or "[Note]"
+  end
+  return "[Note]"
+end
+
+-- Build a text preview showing the list of files that have a given tag
+local function build_tag_preview(tag_name, file_count)
+  local lines = {}
+  table.insert(lines, "Tag: #" .. tag_name)
+  table.insert(lines, "Files: " .. tostring(file_count))
+  table.insert(lines, "")
+  table.insert(lines, "Press <CR> to browse files with this tag.")
+  return table.concat(lines, "\n")
+end
+
+-- Format function for the tag list picker rows
+local function format_tag_item(item)
+  local ret = {}
+  ret[#ret + 1] = { string.format("%-25s", "#" .. item.tag_name), "SnacksPickerLabel" }
+  ret[#ret + 1] = { string.format("%d files", item.file_count), "SnacksPickerComment" }
+  return ret
+end
+
+-- Format function for the file list picker rows
+local function format_file_item(item)
+  local ret = {}
+  local note_indicator = item.has_note and (get_note_glyph() .. " ") or ""
+  ret[#ret + 1] = { note_indicator, "SnacksPickerSpecial" }
+  ret[#ret + 1] = { string.format("%-30s", vim.fs.basename(item.file or "")), "SnacksPickerLabel" }
+  ret[#ret + 1] = { table.concat(item.tags or {}, ", "), "SnacksPickerComment" }
+  return ret
+end
+
 function snacks_picker.saved_filters_picker()
   api.list_filters(function(filters)
     if type(filters) ~= "table" then filters = {} end
-
     if #filters == 0 then
       vim.notify("tagr: No saved filters found", vim.log.levels.INFO)
       return
@@ -133,28 +169,26 @@ function snacks_picker.saved_filters_picker()
     local items = {}
     for _, f in ipairs(filters) do
       table.insert(items, {
-        text = string.format("%-20s │ %s", f.name, f.description or "No description"),
-        value = f.name,
-        name = f.name,
+        text = f.name .. " " .. (f.description or ""),
+        filter_name = f.name,
+        preview = {
+          text = "Filter: " .. f.name .. "\n" .. (f.description or "No description"),
+          ft = "text",
+        },
       })
     end
 
     Snacks.picker({
       title = "Tagr Saved Filters",
       items = items,
-      format = "text", -- Force 'text' formatter to prevent Snacks from falling back to 'file' formatting and drawing blank links
-      layout = {
-        preset = "select", -- Force the compact select layout preset which hides the preview pane
-      },
-      preview = "none", -- Disable custom previews entirely for list menus to avoid the file-lookup fallback error
-      actions = {
-        confirm = function(picker, item)
-          picker:close()
-          if item then
-            M.filtered_files_picker(item.value)
-          end
-        end,
-      },
+      preview = "preview",
+      format = "text",
+      confirm = function(picker, item)
+        picker:close()
+        if item and item.filter_name then
+          M.filtered_files_picker(item.filter_name)
+        end
+      end,
     })
   end)
 end
@@ -162,7 +196,6 @@ end
 function snacks_picker.filtered_files_picker(filter_name)
   api.search({ "-F", filter_name }, function(files)
     if type(files) ~= "table" then files = {} end
-
     if #files == 0 then
       vim.notify("tagr: No files matched filter '" .. filter_name .. "'", vim.log.levels.INFO)
       return
@@ -171,90 +204,94 @@ function snacks_picker.filtered_files_picker(filter_name)
     local items = {}
     for _, f in ipairs(files) do
       local abs_path = vim.fn.fnamemodify(f.file, ":p")
-      -- Detect and flag binary/unviewable files so we can disable previews for them dynamically.
-      -- This avoids the "warn: binary file" message and raw Lua object dumps from Snacks' text-buffer previewer.
-      local is_binary = false
-      local ext = abs_path:match("^.+(%.[^.]+)$")
-      if ext then
-        ext = ext:lower()
-        local binary_exts = {
-          [".zip"] = true, [".tar"] = true, [".gz"] = true, [".tgz"] = true,
-          [".pdf"] = true, [".png"] = true, [".jpg"] = true, [".jpeg"] = true,
-          [".gif"] = true, [".mp4"] = true, [".mov"] = true, [".exe"] = true,
-          [".bin"] = true, [".o"] = true, [".db"] = true, [".sqlite"] = true,
-        }
-        if binary_exts[ext] then
-          is_binary = true
-        end
-      end
-
+      local has_note = type(f.note) == "table"
       table.insert(items, {
-        text = string.format("%s [%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
+        text = vim.fs.basename(f.file) .. " " .. table.concat(f.tags or {}, " "),
         file = abs_path,
-        preview = is_binary and "none" or nil, -- Disable preview specifically for known binary item targets
+        tags = f.tags or {},
+        has_note = has_note,
       })
     end
 
     Snacks.picker({
       title = "Files matching: " .. filter_name,
       items = items,
-      actions = {
-        confirm = function(picker, item)
-          picker:close()
-          -- In Snacks.picker, the selected item is wrapped inside a structure. 
-          -- We must read from item.file (since we populated it inside items), or fallback 
-          -- to reading from item[1] or item.text depending on the state of the object.
-          if item and item.file then
-            vim.cmd("edit " .. vim.fn.fnameescape(item.file))
-          end
-        end,
-      },
+      format = format_file_item,
+      preview = function(ctx)
+        if ctx.item.file then
+          require("snacks.picker.preview").file(ctx)
+        end
+        return true
+      end,
+      confirm = function(picker, item)
+        picker:close()
+        if item and item.file then
+          vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+        end
+      end,
     })
   end)
 end
 
 function snacks_picker.tag_search_picker()
+  -- We need both tags list AND the files-per-tag to build the preview.
+  -- First fetch all tags, then for each tag fetch files to build preview text.
   api.list("tags", function(tags_list)
     if type(tags_list) ~= "table" then tags_list = {} end
-
     if #tags_list == 0 then
       vim.notify("tagr: No tags found in database", vim.log.levels.INFO)
       return
     end
 
+    -- For each tag, build a preview listing the files that contain that tag
     local items = {}
+    local pending = #tags_list
     for _, t in ipairs(tags_list) do
-      table.insert(items, {
-        text = string.format("%-25s (%d files)", t.name, t.file_count),
-        value = t.name,
-      })
-    end
+      api.search({ "-t", t.name }, function(files)
+        if type(files) ~= "table" then files = {} end
+        local file_lines = {}
+        for _, f in ipairs(files) do
+          table.insert(file_lines, "  " .. f.file)
+        end
 
-    Snacks.picker({
-      title = "Select Tag",
-      items = items,
-      format = "text", -- Force 'text' formatter to prevent Snacks from falling back to 'file' formatting and drawing blank links
-      layout = {
-        preset = "select", -- Force the compact select layout preset which hides the preview pane
-      },
-      preview = "none", -- Disable custom previews entirely for list menus to avoid the file-lookup fallback error
-      actions = {
-        confirm = function(picker, item)
-          picker:close()
-          -- Extract the target tag name from the item's custom value table structure.
-          if item and item.value then
-            M.files_by_tag_picker(item.value)
-          end
-        end,
-      },
-    })
+        local preview_text = "Tag: #" .. t.name .. "\n"
+          .. "Files: " .. tostring(t.file_count) .. "\n"
+          .. "\n"
+          .. table.concat(file_lines, "\n")
+
+        table.insert(items, {
+          text = t.name .. " " .. tostring(t.file_count),
+          tag_name = t.name,
+          file_count = t.file_count,
+          preview = { text = preview_text, ft = "text" },
+        })
+
+        pending = pending - 1
+        if pending == 0 then
+          -- All async tag file lookups complete, now open the picker
+          table.sort(items, function(a, b) return a.tag_name < b.tag_name end)
+
+          Snacks.picker({
+            title = "Select Tag",
+            items = items,
+            preview = "preview",
+            format = format_tag_item,
+            confirm = function(picker, item)
+              picker:close()
+              if item and item.tag_name then
+                M.files_by_tag_picker(item.tag_name)
+              end
+            end,
+          })
+        end
+      end)
+    end
   end)
 end
 
 function snacks_picker.files_by_tag_picker(tag_name)
   api.search({ "-t", tag_name }, function(files)
     if type(files) ~= "table" then files = {} end
-
     if #files == 0 then
       vim.notify("tagr: No files with tag '" .. tag_name .. "'", vim.log.levels.INFO)
       return
@@ -262,43 +299,32 @@ function snacks_picker.files_by_tag_picker(tag_name)
 
     local items = {}
     for _, f in ipairs(files) do
-      -- Ensure we resolve the path to its absolute coordinates so Snacks can read the file preview perfectly
       local abs_path = vim.fn.fnamemodify(f.file, ":p")
-      -- Detect and flag binary/unviewable files so we can disable previews for them dynamically.
-      -- This avoids the "warn: binary file" message and raw Lua object dumps from Snacks' text-buffer previewer.
-      local is_binary = false
-      local ext = abs_path:match("^.+(%.[^.]+)$")
-      if ext then
-        ext = ext:lower()
-        local binary_exts = {
-          [".zip"] = true, [".tar"] = true, [".gz"] = true, [".tgz"] = true,
-          [".pdf"] = true, [".png"] = true, [".jpg"] = true, [".jpeg"] = true,
-          [".gif"] = true, [".mp4"] = true, [".mov"] = true, [".exe"] = true,
-          [".bin"] = true, [".o"] = true, [".db"] = true, [".sqlite"] = true,
-        }
-        if binary_exts[ext] then
-          is_binary = true
-        end
-      end
-
+      local has_note = type(f.note) == "table"
       table.insert(items, {
-        text = string.format("%s \t[%s]", vim.fs.basename(f.file), table.concat(f.tags, ", ")),
+        text = vim.fs.basename(f.file) .. " " .. table.concat(f.tags or {}, " "),
         file = abs_path,
-        preview = is_binary and "none" or nil, -- Disable preview specifically for known binary item targets
+        tags = f.tags or {},
+        has_note = has_note,
       })
     end
 
     Snacks.picker({
       title = "Files matching: #" .. tag_name,
       items = items,
-      actions = {
-        confirm = function(picker, item)
-          picker:close()
-          if item and item.file then
-            vim.cmd("edit " .. vim.fn.fnameescape(item.file))
-          end
-        end,
-      },
+      format = format_file_item,
+      preview = function(ctx)
+        if ctx.item.file then
+          require("snacks.picker.preview").file(ctx)
+        end
+        return true
+      end,
+      confirm = function(picker, item)
+        picker:close()
+        if item and item.file then
+          vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+        end
+      end,
     })
   end)
 end
