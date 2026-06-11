@@ -145,6 +145,27 @@ function M.setup(opts)
     map(keys.add_note, ui.add_note_entry, "Tagr: Append new timestamped note entry")
     map(keys.browse, ui.open_browse_tui, "Tagr: Open interactive browse floating layout")
     map(keys.dashboard, dashboard.open_inspector, "Tagr: Open metadata / tag dashboard dashboard")
+    
+    -- Register keymap groups with WhickKey automatically if it is installed and loaded.
+    -- This provides cohesive labeled groupings (e.g. "<leader>t" -> "+tagr") under visual panels.
+    local has_wk, wk = pcall(require, "which-key")
+    if has_wk then
+      -- Find all unique prefixes (like "<leader>t") that users configure for maps.
+      local prefixes = {}
+      for _, map_key in pairs({ keys.add_tag, keys.remove_tag, keys.edit_note, keys.add_note, keys.browse, keys.dashboard }) do
+        if type(map_key) == "string" and map_key:len() > 1 then
+          local prefix = map_key:sub(1, -2) -- Grab leading combination (e.g., "<leader>t")
+          prefixes[prefix] = true
+        end
+      end
+      
+      -- Register description mappings against which-key layout registers.
+      for p, _ in pairs(prefixes) do
+        pcall(wk.add, {
+          { p, group = "tagr" }
+        })
+      end
+    end
   end
 end
 
