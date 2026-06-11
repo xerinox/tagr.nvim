@@ -231,8 +231,6 @@ function snacks_picker.tag_search_picker()
     })
   end)
 end
-  end)
-end
 
 function snacks_picker.files_by_tag_picker(tag_name)
   api.search({ "-t", tag_name }, function(files)
