@@ -2,6 +2,14 @@ local api = require("tagr.api")
 local M = {}
 local cache = {}
 
+local function get_glyph(key, default)
+  local tagr_main = package.loaded["tagr"]
+  if tagr_main and tagr_main.config and tagr_main.config.glyphs then
+    return tagr_main.config.glyphs[key] or default
+  end
+  return default
+end
+
 function M.update_cache(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local filepath = vim.api.nvim_buf_get_name(bufnr)
@@ -31,7 +39,13 @@ function M.get_statusline_tags()
   if not file_data or #file_data.tags == 0 then
     return ""
   end
-  local prefix = file_data.has_note and "📝 🏷️ " or "🏷️ "
+  local tag_glyph = get_glyph("tag", "Tags:")
+  local prefix = ""
+  if file_data.has_note then
+    prefix = get_glyph("note", "Note") .. " " .. tag_glyph .. " "
+  else
+    prefix = tag_glyph .. " "
+  end
   return prefix .. "[" .. table.concat(file_data.tags, ", ") .. "]"
 end
 
@@ -52,11 +66,11 @@ function M.draw_virtual_text(bufnr)
     local pieces = {}
     
     if file_data.has_note then
-      table.insert(pieces, "📝")
+      table.insert(pieces, get_glyph("note", "Note"))
     end
     
     if #file_data.tags > 0 then
-      table.insert(pieces, "🏷️  " .. table.concat(file_data.tags, "  "))
+      table.insert(pieces, get_glyph("tag", "Tags:") .. " " .. table.concat(file_data.tags, "  "))
     end
     
     -- Extmarks allow placing virtual text aligned to the right without modifying buffer text content.

@@ -49,10 +49,18 @@ M.config = {
     enabled = true,
   },
   border = "rounded",
+  glyphs = {
+    tag = "[Tags]",
+    note = "[Note]",
+    checked = "[x]",
+    unchecked = "[ ]",
+    hover = "->",
+  },
   dashboard = {
     layout = "float",             -- "float" or "split"
     split_direction = "vertical", -- "vertical" (right split) or "horizontal" (bottom split)
     split_size = 42,              -- Width/Height size of split window
+    pinned_tags = {},             -- Pinned tags prioritized at the top of the checkbox checklist
   },
   keymaps = {
     enabled = false, -- Users can set this to true to bind standard shortcuts

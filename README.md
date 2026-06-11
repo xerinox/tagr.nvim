@@ -91,11 +91,21 @@ require("tagr").setup({
   -- Floating window border styling
   border = "rounded",
 
+  -- Fully customizable status indicators and visual UI labels (defaults to emoji-free ASCII)
+  glyphs = {
+    tag = "[Tags]",
+    note = "[Note]",
+    checked = "[x]",
+    unchecked = "[ ]",
+    hover = "->",
+  },
+
   -- Deep inspector dashboard settings
   dashboard = {
     layout = "float",             -- "float" or "split"
     split_direction = "vertical", -- "vertical" or "horizontal"
     split_size = 42,              -- split panel width/height
+    pinned_tags = { "todo", "important" }, -- Tags prioritized at the top of the checklist
   },
 
   -- Keybindings management

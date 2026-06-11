@@ -16,12 +16,21 @@ M.config = {
   layout = "float", -- Default layout: "float" or "split"
   split_direction = "vertical", -- "vertical" (right split) or "horizontal" (bottom split)
   split_size = 42,  -- Width/Height size of split window
+  pinned_tags = {}, -- Tags that should always appear prioritized at the top of the selection checkbox list
   notes = {
     enabled = true,
     max_entries = 1,  -- Number of newest entries to show
     max_lines = 4,    -- Maximum lines per entry to show
   }
 }
+
+local function get_glyph(key, default)
+  local tagr_main = package.loaded["tagr"]
+  if tagr_main and tagr_main.config and tagr_main.config.glyphs then
+    return tagr_main.config.glyphs[key] or default
+  end
+  return default
+end
 
 local function get_note_entries(content)
   if not content or content == "" then return {} end
@@ -64,14 +73,15 @@ local function redraw_inspector()
       end
     end
 
-    local check_icon = is_active and "● [x] " or "○ [ ] "
-    local hover_indicator = (i == selection_index) and "➔ " or "  "
+    local hover_val = get_glyph("hover", "->")
+    local check_icon = is_active and (get_glyph("checked", "[x]") .. " ") or (get_glyph("unchecked", "[ ]") .. " ")
+    local hover_indicator = (i == selection_index) and (hover_val .. " ") or string.rep(" ", vim.fn.strdisplaywidth(hover_val) + 1)
     table.insert(info_lines, hover_indicator .. check_icon .. tag)
   end
 
   table.insert(info_lines, "  ────────────────────────────────────────────────────────────────────────")
   
-  local show_notes = M.config.notes.enabled and active_note and active_note.content ~= ""
+  local show_notes = M.config.notes.enabled and type(active_note) == "table" and type(active_note.content) == "string" and active_note.content ~= ""
   local note_start_line = nil
   if show_notes then
     table.insert(info_lines, "  NEWEST NOTES:")
@@ -143,8 +153,11 @@ function M.open_inspector()
 
   -- Fetch metadata and global tags list sequentially to prepare dataset
   api.get_file_info(filepath, function(info)
-    active_tags = info and info.tags or {}
-    active_note = info and info.note or nil
+    if type(info) ~= "table" then
+      info = nil
+    end
+    active_tags = info and type(info.tags) == "table" and info.tags or {}
+    active_note = info and type(info.note) == "table" and info.note or nil
     
     api.list("tags", function(tags)
       all_tags = {}
@@ -159,8 +172,29 @@ function M.open_inspector()
         all_tags = { "todo", "docs", "working", "archived", "draft" }
       end
 
-      -- Sort tags alphabetically to make scanning consistent of the list.
-      table.sort(all_tags)
+      -- Sort non-pinned tags alphabetically, while preserving user defined order for pinned/favorite tags at the top.
+      local pinned = M.config.pinned_tags or {}
+      local pinned_map = {}
+      local final_tags = {}
+      
+      for _, p_tag in ipairs(pinned) do
+        table.insert(final_tags, p_tag)
+        pinned_map[p_tag] = true
+      end
+      
+      local other_tags = {}
+      for _, t in ipairs(all_tags) do
+        if not pinned_map[t] then
+          table.insert(other_tags, t)
+        end
+      end
+      table.sort(other_tags)
+      
+      for _, o_tag in ipairs(other_tags) do
+        table.insert(final_tags, o_tag)
+      end
+      
+      all_tags = final_tags
       selection_index = 1
 
       if inspector_win and vim.api.nvim_win_is_valid(inspector_win) then
