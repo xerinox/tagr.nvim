@@ -103,6 +103,9 @@ require("tagr").setup({
   -- Command executable or absolute path
   bin_path = "tagr",
 
+  -- Optional name of a preset database (e.g. "default" or "work") to select which tagr database you use (via `--db`)
+  db = nil,
+
   -- Selected picker backend: "auto" (autodetects Snacks -> Telescope -> vim.ui.select), "telescope", "snacks", or "ui"
   picker = "auto",
 

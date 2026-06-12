@@ -1,26 +1,41 @@
 local M = {}
 
 M.bin_path = "tagr"
+M.db = nil
 
 function M.setup(opts)
   opts = opts or {}
   if opts.bin_path then
     M.bin_path = opts.bin_path
   end
+  if opts.db then
+    M.db = opts.db
+  end
+end
+
+function M.cmd(args)
+  local cmd_args = { M.bin_path }
+  for _, arg in ipairs(args) do
+    table.insert(cmd_args, arg)
+  end
+  if M.db then
+    table.insert(cmd_args, "--db")
+    table.insert(cmd_args, M.db)
+  end
+  return cmd_args
 end
 
 function M.run_tagr(args, callback)
-  -- The tagr binary needs to be the first element when calling vim.system
-  table.insert(args, 1, M.bin_path)
+  local cmd = M.cmd(args)
   
   -- vim.system is run in a separate system thread; main thread operations (like vim.notify
   -- or buffer updates) must be scheduled back to prevent race conditions or crashes.
-  vim.system(args, { text = true }, function(obj)
+  vim.system(cmd, { text = true }, function(obj)
     if obj.code ~= 0 then
       vim.schedule(function()
         -- Querying a file that hasn't been parsed yet is a common non-exceptional flow,
         -- so we quiet the standard error logs for that specific path.
-        if not (args[2] == "file" and args[3] == "show") then
+        if not (args[1] == "file" and args[2] == "show") then
           vim.notify("tagr.nvim error: " .. (obj.stderr or "Unknown error"), vim.log.levels.WARN)
         end
         if callback then

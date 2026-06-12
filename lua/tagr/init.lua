@@ -6,7 +6,7 @@ local dashboard = require("tagr.dashboard")
 -- Global completion bridges for vim.ui.input() customlist callbacks
 _G.tagr_tag_completion = function(arg_lead, cmd_line, cursor_pos)
   local list = {}
-  local raw = vim.fn.system({ "tagr", "list", "tags", "--json" })
+  local raw = vim.fn.system(api.cmd({ "list", "tags", "--json" }))
   if vim.v.shell_error == 0 then
     local success, parsed = pcall(vim.json.decode, raw)
     if success and type(parsed) == "table" then
@@ -26,7 +26,7 @@ _G.tagr_untag_completion = function(arg_lead, cmd_line, cursor_pos)
   local list = {}
   local filepath = vim.api.nvim_buf_get_name(0)
   if filepath ~= "" then
-    local raw = vim.fn.system({ "tagr", "file", "show", filepath, "--json" })
+    local raw = vim.fn.system(api.cmd({ "file", "show", filepath, "--json" }))
     if vim.v.shell_error == 0 then
       local success, parsed = pcall(vim.json.decode, raw)
       if success and parsed.tags then
@@ -44,6 +44,7 @@ local M = {}
 
 M.config = {
   bin_path = "tagr",
+  db = nil, -- Optional name of a preset database (e.g. "default" or "work")
   picker = "auto", -- "auto", "telescope", "snacks", or "ui" (fallback)
   virtual_text = {
     enabled = true,
@@ -86,7 +87,7 @@ function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts)
   
   -- Setup binary path in core api runner
-  api.setup({ bin_path = M.config.bin_path })
+  api.setup({ bin_path = M.config.bin_path, db = M.config.db })
   
   if M.config.dashboard then
     dashboard.config = vim.tbl_deep_extend("force", dashboard.config, M.config.dashboard)

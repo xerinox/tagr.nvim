@@ -20,7 +20,7 @@ end, {
   nargs = "?",
   complete = function(arg_lead)
     local completion_list = {}
-    local raw_output = vim.fn.system({"tagr", "list", "tags", "--json"})
+    local raw_output = vim.fn.system(require("tagr.api").cmd({"list", "tags", "--json"}))
     if vim.v.shell_error == 0 then
       local success, parsed = pcall(vim.json.decode, raw_output)
       if success then
@@ -58,7 +58,7 @@ end, {
     if filepath == "" then return {} end
     -- Only suggest tags belonging to the current file for removal
     local completion_list = {}
-    local raw_output = vim.fn.system({"tagr", "file", "show", filepath, "--json"})
+    local raw_output = vim.fn.system(require("tagr.api").cmd({"file", "show", filepath, "--json"}))
     if vim.v.shell_error == 0 then
       local success, parsed = pcall(vim.json.decode, raw_output)
       if success and parsed.tags then
@@ -97,7 +97,7 @@ end, {
   complete = function(arg_lead)
     -- Provide absolute command-line autocomplete matching available tags
     local completion_list = {}
-    local raw_output = vim.fn.system({"tagr", "list", "tags", "--json"})
+    local raw_output = vim.fn.system(require("tagr.api").cmd({"list", "tags", "--json"}))
     if vim.v.shell_error == 0 then
       local success, parsed = pcall(vim.json.decode, raw_output)
       if success then
@@ -125,7 +125,7 @@ end, {
   complete = function(arg_lead)
     -- Provide prompt autocomplete matching saved filters list
     local completion_list = {}
-    local raw_output = vim.fn.system({"tagr", "filter", "list", "--json"})
+    local raw_output = vim.fn.system(require("tagr.api").cmd({"filter", "list", "--json"}))
     if vim.v.shell_error == 0 then
       local success, parsed = pcall(vim.json.decode, raw_output)
       if success then

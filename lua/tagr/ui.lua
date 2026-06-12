@@ -279,7 +279,12 @@ function M.open_browse_tui()
   -- Generates a temporary filename to pass to the TUI; the TUI writes selected paths to it on exit,
   -- allowing Neovim to catch the files selected by the user.
   local temp_output_file = vim.fn.tempname()
-  local cmd = string.format("%s browse -q --selected-output %s", vim.fn.shellescape(bin_path), vim.fn.shellescape(temp_output_file))
+  local cmd
+  if api.db then
+    cmd = string.format("%s browse -q --selected-output %s --db %s", vim.fn.shellescape(bin_path), vim.fn.shellescape(temp_output_file), vim.fn.shellescape(api.db))
+  else
+    cmd = string.format("%s browse -q --selected-output %s", vim.fn.shellescape(bin_path), vim.fn.shellescape(temp_output_file))
+  end
   
   vim.fn.termopen(cmd, {
     on_exit = function()
