@@ -1,15 +1,15 @@
 # tagr.nvim
 
-`tagr.nvim` is a Neovim plugin for **tagr**—the filesystem tagging and metadata organization CLI. It provides interactive prompts, metadata dashboards, fuzzy-finding pickers, and asynchronous workflows, allowing you to organize, search, and navigate tagged files.
+`tagr.nvim` is a Neovim plugin for [tagr](https://github.com/xerinox/tagr), the fast, Rust-powered filesystem tagging and metadata organization CLI. It provides interactive prompts, metadata dashboards, fuzzy-finding pickers, and asynchronous workflows, allowing you to organize, search, and navigate tagged files directly inside your editor.
 
 ---
 
 ## Features
 
-- **Asynchronous Execution**: Interacts with the `tagr` Go binary using non-blocking Neovim systems, preventing UI freezes.
+- **Asynchronous Execution**: Interacts with the native `tagr` Rust binary using non-blocking Neovim job APIs, preventing UI freezes.
 - **Dashboard Inspector**: Hover-based floating or split panel to view file metadata, toggle tags via checkboxes, see notes history, and edit metadata.
-- **Fuzzy Finder Integration**: Native support for **Snacks.picker** and **Telescope** as picker backends, with styled format columns, file previews, and binary-file handling. Falls back to built-in `vim.ui.select` when neither is installed.
-- **Fuzzy Tag Search**: Tag searches use the picker's built-in fuzzy matcher — typing a partial tag name narrows the list live. Exact matches from command-line autocomplete skip the tag picker and jump straight to matching files.
+- **Fuzzy Finder Integration**: Native support for [Snacks picker](https://github.com/folke/snacks.nvim) and [Telescope](https://github.com/nvim-telescope/telescope.nvim) as picker backends, with styled format columns, file previews, and binary-file handling. Falls back to built-in `vim.ui.select` when neither is installed.
+- **Fuzzy Tag Search**: Tag searches use the picker's built-in fuzzy matcher—typing a partial tag name narrows the list live. Exact matches from command-line autocomplete skip the tag picker and jump straight to matching files.
 - **Markdown Notes Editor**: Access dedicated visual editor buffers to append or overwrite file notes with timestamped logs.
 - **Tag Autocompletion**: Tab completion matches global and buffer-local tag indices seamlessly.
 - **Virtual Text Overlays**: Render current file tags and note indicators right-aligned on the first line of active buffers.
@@ -19,13 +19,12 @@
 
 ## Prerequisites
 
-The **`tagr`** command-line interface must be installed and available in your system environment PATH.
+The **`tagr`** command-line interface (written in Rust) must be installed and available in your system environment PATH.
 
 ```bash
 # Verify tagr binary is accessible
 tagr --version
 ```
-
 ---
 
 ## Installation
